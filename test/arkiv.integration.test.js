@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { after, test } from "node:test"
+import { after, mock, test } from "node:test"
 
 import { createPublicClient, createWalletClient, http } from "@arkiv-network/sdk"
 import { localhost } from "@arkiv-network/sdk/chains"
@@ -29,6 +29,7 @@ function isConnectivityError(error) {
 }
 
 async function launchLocalArkivNode(accountPrivateKey = undefined) {
+  console.info("Spawning local Arkiv Docker node...")
   const container = await new GenericContainer("golemnetwork/arkiv-op-geth:latest")
     .withExposedPorts(8545, 8546)
     .withCommand([
@@ -61,6 +62,8 @@ async function launchLocalArkivNode(accountPrivateKey = undefined) {
       WALLET_PASSWORD: "password",
     })
     .start()
+
+  console.info("Local Arkiv Docker node spawned successfully.")
 
   if (accountPrivateKey) {
     await execCommand(container, [
@@ -158,8 +161,16 @@ after(async () => {
 })
 
 test("reads the local Arkiv chain ID", async (t) => {
+  const originalConsoleInfo = console.info.bind(console)
+  const consoleInfo = mock.method(console, "info", (...args) => originalConsoleInfo(...args))
+  t.after(() => consoleInfo.mock.restore())
+
   const { client } = (await runIntegrationStep(t, () => getIntegrationContext())) ?? {}
   if (!client) return
+
+  const logMessages = consoleInfo.mock.calls.map((call) => call.arguments.join(" "))
+  assert.ok(logMessages.includes("Spawning local Arkiv Docker node..."))
+  assert.ok(logMessages.includes("Local Arkiv Docker node spawned successfully."))
 
   const chainId = await runIntegrationStep(t, () => client.getChainId())
   if (chainId === undefined) return
