@@ -5,7 +5,8 @@
   "private": true,
   "main": "test/arkiv.integration.test.js",
   "files": [
-    "test/arkiv.integration.test.js"
+    "test/arkiv.integration.test.js",
+    "examples/arkiv.integration.example.js"
   ],
   "scripts": {
     "test": "node --test",
