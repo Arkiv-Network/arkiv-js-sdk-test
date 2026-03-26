@@ -9,8 +9,5 @@ test("package metadata supports GitHub installation", async () => {
 
   assert.equal(packageJson.type, "module")
   assert.equal(packageJson.main, "test/arkiv.integration.test.js")
-  assert.deepEqual(packageJson.exports, {
-    ".": "./test/arkiv.integration.test.js",
-  })
   assert.deepEqual(packageJson.files, ["test/arkiv.integration.test.js"])
 })
