@@ -24,6 +24,13 @@
   },
   "homepage": "https://github.com/Arkiv-Network/arkiv-js-sdk-test#readme",
   "dependencies": {
-    "@arkiv-network/sdk": "^0.6.3"
+    "@arkiv-network/sdk": "^0.6.3",
+    "testcontainers": "^11.13.0",
+    "viem": "^2.47.6"
+  },
+  "overrides": {
+    "glob": "13.0.3",
+    "readdir-glob": "3.0.0",
+    "zip-stream": "7.0.2"
   }
 }

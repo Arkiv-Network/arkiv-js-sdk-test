@@ -1,17 +1,16 @@
 import assert from "node:assert/strict"
-import test from "node:test"
+import { after, test } from "node:test"
 
 import { createPublicClient, createWalletClient, http } from "@arkiv-network/sdk"
-import { kaolin } from "@arkiv-network/sdk/chains"
-import { privateKeyToAccount } from "viem/accounts"
+import { localhost } from "@arkiv-network/sdk/chains"
+import { GenericContainer, Wait } from "testcontainers"
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 
-const rpcUrl = process.env.ARKIV_RPC_URL ?? kaolin.rpcUrls.default.http[0]
-const writePrivateKey = process.env.ARKIV_PRIVATE_KEY?.trim()
-
-const client = createPublicClient({
-  chain: kaolin,
-  transport: http(rpcUrl),
-})
+const localWritePrivateKey = generatePrivateKey()
+const localWriteAccount = privateKeyToAccount(localWritePrivateKey)
+const containerStartupErrorPattern = /docker|container|podman|socket|No such container/i
+let localIntegrationContextPromise
+let localIntegrationContainer
 
 function isConnectivityError(error) {
   const messages = [
@@ -29,6 +28,100 @@ function isConnectivityError(error) {
   )
 }
 
+async function launchLocalArkivNode(accountPrivateKey = undefined) {
+  const container = await new GenericContainer("golemnetwork/arkiv-op-geth:latest")
+    .withExposedPorts(8545, 8546)
+    .withCommand([
+      "--http",
+      "--http.addr",
+      "0.0.0.0",
+      "--http.port",
+      "8545",
+      "--http.api",
+      "eth,net,web3,debug,golembase,arkiv",
+      "--http.corsdomain",
+      "*",
+      "--ws",
+      "--ws.addr",
+      "0.0.0.0",
+      "--ws.port",
+      "8546",
+      "--ws.api",
+      "eth,net,web3,debug,golembase,arkiv",
+      "--ws.origins",
+      "*",
+      "--networkid",
+      "1",
+      "--dev",
+      "--allow-insecure-unlock",
+    ])
+    .withWaitStrategy(Wait.forLogMessage("HTTP server started", 1))
+    .withStartupTimeout(30_000)
+    .withEnvironment({
+      WALLET_PASSWORD: "password",
+    })
+    .start()
+
+  if (accountPrivateKey) {
+    await execCommand(container, [
+      "golembase",
+      "account",
+      "import",
+      "--privatekey",
+      accountPrivateKey,
+    ])
+    await execCommand(container, ["golembase", "account", "fund"])
+  }
+
+  return {
+    container,
+    httpPort: container.getMappedPort(8545),
+    wsPort: container.getMappedPort(8546),
+  }
+}
+
+async function execCommand(container, command) {
+  const result = await container.exec(command)
+
+  if (result.exitCode !== 0) {
+    throw new Error(`Command failed (${result.exitCode}): ${command.join(" ")}\n${result.output}`)
+  }
+
+  return result.output
+}
+
+async function getIntegrationContext() {
+  if (!localIntegrationContextPromise) {
+    localIntegrationContextPromise = (async () => {
+      let localNode
+
+      try {
+        localNode = await launchLocalArkivNode(localWritePrivateKey)
+        localIntegrationContainer = localNode.container
+
+        const rpcUrl = `http://${localNode.container.getHost()}:${localNode.httpPort}`
+        return {
+          rpcUrl,
+          client: createPublicClient({
+            chain: localhost,
+            transport: http(rpcUrl),
+          }),
+          walletClient: createWalletClient({
+            account: localWriteAccount,
+            chain: localhost,
+            transport: http(rpcUrl),
+          }),
+        }
+      } catch (error) {
+        await localNode?.container?.stop().catch(() => {})
+        throw error
+      }
+    })()
+  }
+
+  return localIntegrationContextPromise
+}
+
 async function runIntegrationStep(t, action) {
   try {
     return await action()
@@ -36,9 +129,15 @@ async function runIntegrationStep(t, action) {
     if (isConnectivityError(error)) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
-      t.skip(
-        `Arkiv Kaolin RPC is unreachable from this environment (${rpcUrl}). ${errorMessage}`,
-      )
+      t.skip(`Local Arkiv node is unreachable from this environment. ${errorMessage}`)
+
+      return undefined
+    }
+
+    if (containerStartupErrorPattern.test(String(error))) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      t.skip(`Local Arkiv node could not be started in this environment. ${errorMessage}`)
 
       return undefined
     }
@@ -54,11 +153,18 @@ function isPositiveBlockHeight(value) {
   return false
 }
 
-test("reads the Kaolin chain ID", async (t) => {
+after(async () => {
+  await localIntegrationContainer?.stop().catch(() => {})
+})
+
+test("reads the local Arkiv chain ID", async (t) => {
+  const { client } = (await runIntegrationStep(t, () => getIntegrationContext())) ?? {}
+  if (!client) return
+
   const chainId = await runIntegrationStep(t, () => client.getChainId())
   if (chainId === undefined) return
 
-  assert.equal(chainId, kaolin.id)
+  assert.equal(chainId, localhost.id)
 })
 
 test("accepts block heights returned as bigint or number", () => {
@@ -69,7 +175,10 @@ test("accepts block heights returned as bigint or number", () => {
   assert.equal(isPositiveBlockHeight(1.5), false)
 })
 
-test("reads block timing from Kaolin", async (t) => {
+test("reads block timing from a local Arkiv node", async (t) => {
+  const { client } = (await runIntegrationStep(t, () => getIntegrationContext())) ?? {}
+  if (!client) return
+
   const blockTiming = await runIntegrationStep(t, () => client.getBlockTiming())
   if (blockTiming === undefined) return
 
@@ -81,17 +190,11 @@ test("reads block timing from Kaolin", async (t) => {
   assert.ok(blockTiming.blockDuration > 0)
 })
 
-test("creates and reads back an entity on Kaolin", async (t) => {
-  if (!writePrivateKey) {
-    t.skip("Set ARKIV_PRIVATE_KEY to run the write integration example.")
-    return
-  }
+test("creates and reads back an entity on a local Arkiv node", async (t) => {
+  const context = await runIntegrationStep(t, () => getIntegrationContext())
+  if (!context) return
 
-  const walletClient = createWalletClient({
-    account: privateKeyToAccount(writePrivateKey),
-    chain: kaolin,
-    transport: http(rpcUrl),
-  })
+  const { client, walletClient } = context
   const writeTestId = `write-test-${Date.now()}`
   const payload = { id: writeTestId, source: "arkiv-js-sdk-test" }
 
