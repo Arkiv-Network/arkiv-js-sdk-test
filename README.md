@@ -31,7 +31,7 @@ npm install
 npm install github:Arkiv-Network/arkiv-js-sdk-test
 ```
 
-This package is plain JavaScript, so there is no separate build step or compiled `dist/` output to keep in the repository. The GitHub install uses the checked-in package files directly.
+This installs this demo integration-test package directly from the repository. The package is plain JavaScript, so there is no separate build step or compiled `dist/` output to keep in the repository. The GitHub install uses the checked-in package files directly.
 
 ## Run the integration tests
 

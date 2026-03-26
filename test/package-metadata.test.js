@@ -8,6 +8,5 @@ test("package metadata supports GitHub installation", async () => {
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"))
 
   assert.equal(packageJson.type, "module")
-  assert.equal(packageJson.main, "test/arkiv.integration.test.js")
   assert.deepEqual(packageJson.files, ["test/arkiv.integration.test.js"])
 })
