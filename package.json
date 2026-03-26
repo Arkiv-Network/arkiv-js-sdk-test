@@ -4,6 +4,12 @@
   "description": "Minimal Arkiv SDK integration test demo",
   "private": true,
   "main": "test/arkiv.integration.test.js",
+  "exports": {
+    ".": "./test/arkiv.integration.test.js"
+  },
+  "files": [
+    "test/arkiv.integration.test.js"
+  ],
   "scripts": {
     "test": "node --test",
     "test:integration": "node --test test/**/*.integration.test.js"
