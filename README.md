@@ -4,6 +4,8 @@ This repository is a minimal demonstration package for running Arkiv SDK integra
 
 It is modeled after the [`test`](https://github.com/Arkiv-Network/arkiv-sdk-js/tree/main/test) package in [`Arkiv-Network/arkiv-sdk-js`](https://github.com/Arkiv-Network/arkiv-sdk-js), but keeps the scope intentionally small with two simple read checks and one write example against a local Arkiv node launched via `testcontainers`.
 
+For agent-oriented instructions on running and extending these integration tests, see [`SKILL.md`](./SKILL.md).
+
 ## What is included
 
 - a tiny npm package that depends on `@arkiv-network/sdk`
