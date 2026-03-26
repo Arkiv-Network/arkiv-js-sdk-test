@@ -1,10 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { createPublicClient, http } from "@arkiv-network/sdk"
+import { createPublicClient, createWalletClient, http } from "@arkiv-network/sdk"
 import { kaolin } from "@arkiv-network/sdk/chains"
+import { privateKeyToAccount } from "viem/accounts"
 
 const rpcUrl = process.env.ARKIV_RPC_URL ?? kaolin.rpcUrls.default.http[0]
+const writePrivateKey = process.env.ARKIV_PRIVATE_KEY?.trim()
 
 const client = createPublicClient({
   chain: kaolin,
@@ -77,4 +79,40 @@ test("reads block timing from Kaolin", async (t) => {
   assert.ok(isPositiveBlockHeight(blockTiming.currentBlock))
   assert.ok(blockTiming.currentBlockTime > 0)
   assert.ok(blockTiming.blockDuration > 0)
+})
+
+test("creates and reads back an entity on Kaolin", async (t) => {
+  if (!writePrivateKey) {
+    t.skip("Set ARKIV_PRIVATE_KEY to run the write integration example.")
+    return
+  }
+
+  const walletClient = createWalletClient({
+    account: privateKeyToAccount(writePrivateKey),
+    chain: kaolin,
+    transport: http(rpcUrl),
+  })
+  const writeTestId = `write-test-${Date.now()}`
+  const payload = { id: writeTestId, source: "arkiv-js-sdk-test" }
+
+  const createdEntity = await runIntegrationStep(t, () =>
+    walletClient.createEntity({
+      payload: new TextEncoder().encode(JSON.stringify(payload)),
+      attributes: [{ key: "testRunId", value: writeTestId }],
+      contentType: "application/json",
+      expiresIn: 600,
+    }),
+  )
+  if (createdEntity === undefined) return
+
+  assert.match(createdEntity.entityKey, /^0x[0-9a-f]+$/i)
+  assert.match(createdEntity.txHash, /^0x[0-9a-f]+$/i)
+
+  const entity = await runIntegrationStep(t, () => client.getEntity(createdEntity.entityKey))
+  if (entity === undefined) return
+
+  assert.equal(entity.key, createdEntity.entityKey)
+  assert.equal(entity.contentType, "application/json")
+  assert.equal(entity.toJson().id, writeTestId)
+  assert.ok(entity.attributes.some((attribute) => attribute.key === "testRunId" && attribute.value === writeTestId))
 })
