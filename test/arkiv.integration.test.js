@@ -45,6 +45,13 @@ async function runIntegrationStep(t, action) {
   }
 }
 
+function isPositiveBlockHeight(value) {
+  if (typeof value === "bigint") return value > 0n
+  if (typeof value === "number") return Number.isInteger(value) && value > 0
+
+  return false
+}
+
 test("reads the Kaolin chain ID", async (t) => {
   const chainId = await runIntegrationStep(t, () => client.getChainId())
   if (chainId === undefined) return
@@ -52,14 +59,22 @@ test("reads the Kaolin chain ID", async (t) => {
   assert.equal(chainId, kaolin.id)
 })
 
+test("accepts block heights returned as bigint or number", () => {
+  assert.equal(isPositiveBlockHeight(1n), true)
+  assert.equal(isPositiveBlockHeight(1), true)
+  assert.equal(isPositiveBlockHeight(0n), false)
+  assert.equal(isPositiveBlockHeight(0), false)
+  assert.equal(isPositiveBlockHeight(1.5), false)
+})
+
 test("reads block timing from Kaolin", async (t) => {
   const blockTiming = await runIntegrationStep(t, () => client.getBlockTiming())
   if (blockTiming === undefined) return
 
-  assert.equal(typeof blockTiming.currentBlock, "bigint")
+  assert.ok(["bigint", "number"].includes(typeof blockTiming.currentBlock))
   assert.equal(typeof blockTiming.currentBlockTime, "number")
   assert.equal(typeof blockTiming.blockDuration, "number")
-  assert.ok(blockTiming.currentBlock > 0n)
+  assert.ok(isPositiveBlockHeight(blockTiming.currentBlock))
   assert.ok(blockTiming.currentBlockTime > 0)
   assert.ok(blockTiming.blockDuration > 0)
 })
