@@ -19,11 +19,19 @@ It is modeled after the [`test`](https://github.com/Arkiv-Network/arkiv-sdk-js/t
 
 If you need to use a different Arkiv RPC endpoint, set `ARKIV_RPC_URL` before running the tests.
 
-## Install
+## Install dependencies for this checkout
 
 ```bash
 npm install
 ```
+
+## Install directly from GitHub
+
+```bash
+npm install github:Arkiv-Network/arkiv-js-sdk-test
+```
+
+This installs this demo integration-test package directly from the repository. The package is plain JavaScript, so there is no separate build step or compiled `dist/` output to keep in the repository. The GitHub install uses the checked-in package files directly.
 
 ## Run the integration tests
 
