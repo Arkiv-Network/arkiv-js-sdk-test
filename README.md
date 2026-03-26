@@ -2,20 +2,22 @@
 
 This repository is a minimal demonstration package for running Arkiv SDK integration tests.
 
-It is modeled after the [`test`](https://github.com/Arkiv-Network/arkiv-sdk-js/tree/main/test) package in [`Arkiv-Network/arkiv-sdk-js`](https://github.com/Arkiv-Network/arkiv-sdk-js), but keeps the scope intentionally small and only runs a couple of simple read-only integration checks against the public Kaolin network.
+It is modeled after the [`test`](https://github.com/Arkiv-Network/arkiv-sdk-js/tree/main/test) package in [`Arkiv-Network/arkiv-sdk-js`](https://github.com/Arkiv-Network/arkiv-sdk-js), but keeps the scope intentionally small with two simple read-only checks and one optional write example against the public Kaolin network.
 
 ## What is included
 
 - a tiny npm package that depends on `@arkiv-network/sdk`
-- two integration tests using Node's built-in test runner
+- integration tests using Node's built-in test runner
 - simple assertions for:
   - `getChainId()`
   - `getBlockTiming()`
+  - `createEntity()` plus a read-back check via `getEntity()`
 
 ## Prerequisites
 
 - Node.js 24 or newer
 - network access to the Arkiv Kaolin RPC endpoint
+- a funded private key in `ARKIV_PRIVATE_KEY` if you want to run the write example
 
 If you need to use a different Arkiv RPC endpoint, set `ARKIV_RPC_URL` before running the tests.
 
@@ -51,7 +53,14 @@ To override the default RPC URL:
 ARKIV_RPC_URL=https://kaolin.hoodi.arkiv.network/rpc npm test
 ```
 
+To run the write example too:
+
+```bash
+ARKIV_PRIVATE_KEY=0x... npm test
+```
+
 ## Notes
 
 - These tests are real integration tests, so they require a reachable Arkiv RPC endpoint.
 - In restricted environments where the Kaolin RPC hostname cannot be resolved or reached, the tests are skipped with a clear message instead of failing for DNS/connectivity reasons.
+- The write example is skipped unless `ARKIV_PRIVATE_KEY` is set.
