@@ -1,0 +1,26 @@
+{
+  "name": "arkiv-js-sdk-test",
+  "version": "1.0.0",
+  "description": "Minimal Arkiv SDK integration test demo",
+  "private": true,
+  "main": "test/arkiv.integration.test.js",
+  "scripts": {
+    "test": "node --test",
+    "test:integration": "node --test test/**/*.integration.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arkiv-Network/arkiv-js-sdk-test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Arkiv-Network/arkiv-js-sdk-test/issues"
+  },
+  "homepage": "https://github.com/Arkiv-Network/arkiv-js-sdk-test#readme",
+  "dependencies": {
+    "@arkiv-network/sdk": "^0.6.3"
+  }
+}
