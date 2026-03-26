@@ -4,12 +4,13 @@ import { after, test } from "node:test"
 import { createPublicClient, createWalletClient, http } from "@arkiv-network/sdk"
 import { localhost } from "@arkiv-network/sdk/chains"
 import { GenericContainer, Wait } from "testcontainers"
-import { privateKeyToAccount } from "viem/accounts"
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 
-const localWritePrivateKey = "0x59c6995e998f97a5a0044966f0945382db7d2f5a26b98d2bb604aea16c3f4c8b"
+const localWritePrivateKey = generatePrivateKey()
 const localWriteAccount = privateKeyToAccount(localWritePrivateKey)
-let integrationContextPromise
-let integrationContainer
+const containerStartupErrorPattern = /docker|container|podman|socket|No such container/i
+let localIntegrationContextPromise
+let localIntegrationContainer
 
 function isConnectivityError(error) {
   const messages = [
@@ -27,7 +28,7 @@ function isConnectivityError(error) {
   )
 }
 
-async function launchLocalArkivNode(withFundingAccount = undefined) {
+async function launchLocalArkivNode(accountPrivateKey = undefined) {
   const container = await new GenericContainer("golemnetwork/arkiv-op-geth:latest")
     .withExposedPorts(8545, 8546)
     .withCommand([
@@ -61,13 +62,13 @@ async function launchLocalArkivNode(withFundingAccount = undefined) {
     })
     .start()
 
-  if (withFundingAccount) {
+  if (accountPrivateKey) {
     await execCommand(container, [
       "golembase",
       "account",
       "import",
       "--privatekey",
-      withFundingAccount,
+      accountPrivateKey,
     ])
     await execCommand(container, ["golembase", "account", "fund"])
   }
@@ -90,13 +91,13 @@ async function execCommand(container, command) {
 }
 
 async function getIntegrationContext() {
-  if (!integrationContextPromise) {
-    integrationContextPromise = (async () => {
+  if (!localIntegrationContextPromise) {
+    localIntegrationContextPromise = (async () => {
       let localNode
 
       try {
         localNode = await launchLocalArkivNode(localWritePrivateKey)
-        integrationContainer = localNode.container
+        localIntegrationContainer = localNode.container
 
         const rpcUrl = `http://${localNode.container.getHost()}:${localNode.httpPort}`
         return {
@@ -118,7 +119,7 @@ async function getIntegrationContext() {
     })()
   }
 
-  return integrationContextPromise
+  return localIntegrationContextPromise
 }
 
 async function runIntegrationStep(t, action) {
@@ -133,7 +134,7 @@ async function runIntegrationStep(t, action) {
       return undefined
     }
 
-    if (/docker|container|podman|socket|No such container/i.test(String(error))) {
+    if (containerStartupErrorPattern.test(String(error))) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
       t.skip(`Local Arkiv node could not be started in this environment. ${errorMessage}`)
@@ -153,7 +154,7 @@ function isPositiveBlockHeight(value) {
 }
 
 after(async () => {
-  await integrationContainer?.stop().catch(() => {})
+  await localIntegrationContainer?.stop().catch(() => {})
 })
 
 test("reads the local Arkiv chain ID", async (t) => {
